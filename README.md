@@ -1,6 +1,6 @@
 # Playwright 테스트 스위트 가이드
 
-이 프로젝트는 Laravel 10.x 애플리케이션을 위한 Playwright 기반 E2E 테스트 스위트입니다. **AI 기반 자연어 UI 탐색** 기능을 포함하여 다양한 사이트 구조에 자동으로 적응합니다.
+이 프로젝트는 Laravel 10.x 애플리케이션을 위한 Playwright 기반 E2E 테스트 스위트입니다. **AI 기반 자연어 UI 탐색** 기능과 **웹 기반 테스트 자동화 대시보드**를 포함하여 다양한 사이트 구조에 자동으로 적응하고 웹에서 테스트를 실행할 수 있습니다.
 
 ## 📁 프로젝트 구조
 
@@ -10,7 +10,11 @@ WebTestAutoSystem/
 ├── package.json                  # Node.js 의존성 및 스크립트
 ├── tsconfig.json                 # TypeScript 설정
 ├── .env.example                  # 환경 변수 템플릿
-├── .gitignore                    # Git 제외 파일 목록
+├── .gitignore                   # Git 제외 파일 목록
+├── server/                       # 웹 대시보드 서버
+│   ├── app.js                   # Express 서버
+│   └── public/
+│       └── index.html           # 웹 대시보드 UI
 └── tests/
     ├── auth-helpers.ts           # 로그인 헬퍼 함수
     ├── login.spec.ts             # 로그인 테스트
@@ -25,7 +29,7 @@ WebTestAutoSystem/
         ├── ai-base-page.ts       # AI 기반 페이지 클래스
         ├── login-page.ts         # 로그인 페이지
         ├── ai-login-page.ts      # AI 기반 로그인 페이지
-        ├── dashboard-page.ts     # 사용자 대시보드 페이지
+        ├── dashboard-page.ts      # 사용자 대시보드 페이지
         └── admin-members-page.ts # 관리자 회원 관리 페이지
 ```
 
@@ -48,7 +52,7 @@ npm install
 
 ```bash
 npm install --save-dev @playwright/test typescript dotenv @types/node
-npm install openai  # OpenAI 통합 사용 시 (선택사항)
+npm install express socket.io openai  # 웹 대시보드 및 AI 기능
 ```
 
 ### 3. Playwright 브라우저 설치
@@ -70,6 +74,10 @@ npx playwright install webkit
 `.env.example` 파일을 `.env`로 복사하고 실제 값으로 수정:
 
 ```bash
+# Windows PowerShell
+Copy-Item .env.example .env
+
+# Linux/Mac
 cp .env.example .env
 ```
 
@@ -84,11 +92,27 @@ ADMIN_PASSWORD=admin123
 
 # OpenAI API Key (선택사항 - 고급 AI 요소 탐색을 위해)
 # OPENAI_API_KEY=sk-your-openai-api-key-here
+
+# 웹 대시보드 포트 (선택사항)
+# PORT=3001
 ```
 
-## 🧪 테스트 실행
+## 🧪 테스트 실행 방법
 
-### 모든 테스트 실행
+### 📋 사전 준비
+
+#### 1. Laravel 앱 실행 확인
+
+테스트 전에 Laravel 개발 서버가 실행 중인지 확인:
+
+```bash
+# Laravel 서버 실행 (다른 터미널에서)
+php artisan serve
+# 또는
+php artisan serve --host=0.0.0.0 --port=8000
+```
+
+### 기본 테스트 실행 (헤드리스 모드)
 
 ```bash
 npm test
@@ -96,13 +120,12 @@ npm test
 npx playwright test
 ```
 
-### 헤드리스 모드 (기본값 - 브라우저 UI 없이)
+**특징:**
+- 브라우저 UI 없이 백그라운드에서 실행
+- 빠르고 CI/CD에 적합
+- 모든 테스트 파일 실행
 
-```bash
-npm test
-```
-
-### 헤디드 모드 (브라우저 UI와 함께 - 디버깅용)
+### 브라우저와 함께 실행 (디버깅용)
 
 ```bash
 npm run test:headed
@@ -110,16 +133,21 @@ npm run test:headed
 npx playwright test --headed
 ```
 
-### 특정 테스트 파일 실행
+**특징:**
+- 브라우저 창이 열리며 테스트 진행 과정 확인 가능
+- 문제 발생 시 시각적으로 확인 가능
+- 디버깅에 유용
+
+### 특정 테스트 파일만 실행
 
 ```bash
 # 로그인 테스트만
 npm run test:login
 
-# 버튼 테스트만
+# 버튼 상호작용 테스트만
 npm run test:buttons
 
-# CRUD 테스트만
+# CRUD 작업 테스트만
 npm run test:crud
 
 # AI 기반 로그인 테스트
@@ -129,8 +157,13 @@ npx playwright test tests/ai-login.spec.ts
 ### 특정 브라우저로 실행
 
 ```bash
+# Chrome/Chromium만
 npm run test:chromium
+
+# Firefox만
 npm run test:firefox
+
+# Safari/WebKit만
 npm run test:webkit
 ```
 
@@ -142,6 +175,11 @@ npm run test:debug
 npx playwright test --debug
 ```
 
+**특징:**
+- Playwright Inspector가 자동으로 열림
+- 각 단계를 수동으로 진행 가능
+- 중단점 설정 및 변수 확인 가능
+
 ### UI 모드 (인터랙티브 테스트 실행)
 
 ```bash
@@ -150,6 +188,11 @@ npm run test:ui
 npx playwright test --ui
 ```
 
+**특징:**
+- 웹 기반 테스트 실행 UI 제공
+- 테스트 선택 실행 가능
+- 실시간 결과 확인
+
 ### 테스트 리포트 보기
 
 ```bash
@@ -157,6 +200,178 @@ npm run report
 # 또는
 npx playwright show-report
 ```
+
+테스트 실행 후 자동 생성된 HTML 리포트를 브라우저에서 확인할 수 있습니다.
+
+### 실패한 테스트만 재실행
+
+```bash
+# 마지막 실행에서 실패한 테스트만 재실행
+npx playwright test --last-failed
+
+# 테스트 이름으로 필터링
+npx playwright test -g "로그인"
+
+# 파일 경로로 실행
+npx playwright test tests/login.spec.ts
+```
+
+## 🌐 웹 기반 테스트 자동화 대시보드
+
+웹 브라우저에서 테스트를 실행하고 결과를 확인할 수 있는 대시보드 시스템입니다.
+
+### 빠른 시작
+
+#### 1. 서버 실행
+
+```bash
+npm run server
+```
+
+서버가 `http://localhost:3001`에서 실행됩니다.
+
+#### 2. 웹 대시보드 접속
+
+브라우저에서 다음 URL로 접속:
+
+```
+http://localhost:3001
+```
+
+### 주요 기능
+
+#### ✅ 웹에서 테스트 실행
+- 전체 테스트 실행
+- 특정 테스트 파일만 실행 (로그인, 버튼, CRUD 등)
+- 실시간 실행 상태 확인
+
+#### 📊 실시간 모니터링
+- WebSocket을 통한 실시간 출력 스트리밍
+- 테스트 진행 상황 실시간 업데이트
+- 실행 시간 및 상태 표시
+
+#### 📝 테스트 히스토리
+- 최근 실행된 테스트 목록
+- 각 테스트의 실행 시간 및 결과
+- 성공/실패 상태 표시
+
+#### 📄 리포트 확인
+- Playwright HTML 리포트 웹에서 확인
+- 스크린샷 및 비디오 확인
+- 상세한 테스트 결과 분석
+
+### 사용 방법
+
+#### 1. 테스트 실행
+
+1. 웹 대시보드 접속
+2. "테스트 파일 선택" 드롭다운에서 원하는 테스트 선택
+3. "테스트 실행" 버튼 클릭
+4. 실시간으로 테스트 진행 상황 확인
+
+#### 2. 결과 확인
+
+- **실시간 출력**: 실행 중인 테스트의 출력을 실시간으로 확인
+- **히스토리**: 하단의 히스토리 섹션에서 이전 실행 결과 확인
+- **리포트**: "리포트 보기" 버튼으로 상세 HTML 리포트 확인
+
+### API 엔드포인트
+
+#### POST `/api/tests/run`
+테스트 실행 요청
+
+**요청 본문:**
+```json
+{
+  "testFile": "tests/login.spec.ts",  // 선택사항, null이면 전체 테스트
+  "options": {
+    "env": {
+      "BASE_URL": "http://localhost:8000"
+    }
+  }
+}
+```
+
+#### GET `/api/tests/status/:runId`
+테스트 실행 상태 조회
+
+#### GET `/api/tests/history`
+테스트 실행 히스토리 조회
+
+#### GET `/api/tests/list`
+사용 가능한 테스트 목록 조회
+
+#### GET `/api/tests/report`
+테스트 리포트 정보 조회
+
+### WebSocket 이벤트
+
+#### `test-output`
+테스트 실행 중 출력 스트리밍
+
+```javascript
+socket.on('test-output', (data) => {
+  console.log('출력:', data.data);
+});
+```
+
+#### `test-complete`
+테스트 실행 완료 알림
+
+```javascript
+socket.on('test-complete', (data) => {
+  console.log('완료:', data.status);
+});
+```
+
+### 설정
+
+#### 포트 변경
+
+환경 변수로 포트 변경:
+
+```bash
+PORT=8080 npm run server
+```
+
+또는 `.env` 파일에 추가:
+
+```env
+PORT=8080
+```
+
+### 프로덕션 배포
+
+#### PM2 사용 (권장)
+
+```bash
+npm install -g pm2
+pm2 start server/app.js --name playwright-dashboard
+pm2 save
+pm2 startup
+```
+
+#### Docker 사용
+
+```dockerfile
+FROM node:18
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+EXPOSE 3001
+CMD ["npm", "run", "server"]
+```
+
+### 보안 고려사항
+
+⚠️ **주의**: 현재 버전은 개발 환경용입니다. 프로덕션 배포 시 다음을 고려하세요:
+
+1. 인증/인가 추가
+2. CORS 설정 제한
+3. Rate limiting 추가
+4. HTTPS 사용
+5. 입력 검증 강화
 
 ## 📝 테스트 파일 설명
 
@@ -439,6 +654,27 @@ webServer: {
 }
 ```
 
+### 테스트가 연결되지 않는 경우
+
+```bash
+# Laravel 서버가 실행 중인지 확인
+# 브라우저에서 http://localhost:8000 접속 테스트
+
+# BASE_URL 확인
+# .env 파일의 BASE_URL이 올바른지 확인
+```
+
+### 타임아웃 오류 발생 시
+
+`playwright.config.ts`에서 타임아웃 값 증가:
+
+```typescript
+use: {
+  actionTimeout: 30000,  // 기본값보다 증가
+  navigationTimeout: 30000,
+}
+```
+
 ### AI 요소 탐색 실패 시
 
 1. 더 구체적인 설명 사용: "로그인" → "메인 메뉴의 로그인 버튼"
@@ -451,6 +687,39 @@ webServer: {
 1. API 키 확인
 2. 네트워크 연결 확인
 3. `useOpenAI: false`로 설정하여 기본 AI만 사용
+
+### 웹 대시보드 서버 문제
+
+#### 서버가 시작되지 않는 경우
+
+1. 포트가 이미 사용 중인지 확인:
+   ```bash
+   netstat -ano | findstr :3001
+   ```
+
+2. 다른 포트로 실행:
+   ```bash
+   PORT=3002 npm run server
+   ```
+
+#### 테스트가 실행되지 않는 경우
+
+1. Playwright가 설치되어 있는지 확인:
+   ```bash
+   npx playwright --version
+   ```
+
+2. 프로젝트 디렉토리 확인:
+   - 서버는 프로젝트 루트에서 실행되어야 합니다.
+
+#### 리포트가 표시되지 않는 경우
+
+1. 먼저 테스트를 실행하여 리포트 생성:
+   ```bash
+   npm test
+   ```
+
+2. `playwright-report` 디렉토리가 존재하는지 확인
 
 ## 📊 테스트 리포트
 
@@ -488,7 +757,7 @@ jobs:
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
       - uses: actions/upload-artifact@v3
-        if: always()
+        if: always
         with:
           name: playwright-report
           path: playwright-report/
@@ -507,6 +776,21 @@ jobs:
 3. **테스트 데이터**: CRUD 테스트는 실제 데이터베이스에 영향을 줄 수 있으므로, 테스트 환경을 사용하거나 테스트 후 정리를 고려하세요.
 4. **타이밍**: 네트워크 지연에 따라 `waitForTimeout` 값을 조정해야 할 수 있습니다.
 5. **AI 탐색**: AI 기반 탐색은 다양한 사이트 구조에 적응하지만, 매우 특수한 구조의 경우 수동 셀렉터 조정이 필요할 수 있습니다.
+6. **웹 대시보드 보안**: 개발 환경용으로 설계되었습니다. 프로덕션 배포 시 인증/인가 및 보안 설정을 추가하세요.
+
+## 📝 테스트 실행 예시 출력
+
+성공적인 테스트 실행 시:
+
+```
+Running 15 tests using 3 workers
+
+  ✓ tests/login.spec.ts:5:3 › 로그인 테스트 › 사용자 로그인 › 사용자로 성공적으로 로그인하고 대시보드로 리다이렉션되어야 합니다 (2.1s)
+  ✓ tests/login.spec.ts:19:3 › 로그인 테스트 › 사용자 로그인 › 잘못된 자격증명으로 로그인이 실패해야 합니다 (1.8s)
+  ...
+
+  15 passed (45.2s)
+```
 
 ---
 
