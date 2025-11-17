@@ -22,7 +22,8 @@ export default defineConfig({
   /* 아래의 모든 프로젝트에 대한 공유 설정. 자세한 내용: https://playwright.dev/docs/api/class-testoptions */
   use: {
     /* `await page.goto('/')`와 같은 액션에서 사용할 기본 URL */
-    baseURL: process.env.BASE_URL || 'http://localhost:8000',
+    /* 주의: BASE_URL은 웹 대시보드에서 필수로 입력해야 합니다 */
+    baseURL: process.env.BASE_URL,
     /* 실패한 테스트를 재시도할 때 트레이스를 수집합니다. 자세한 내용: https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
     /* 실패 시 스크린샷을 찍습니다 */

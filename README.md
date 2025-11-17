@@ -85,10 +85,16 @@ cp .env.example .env
 
 ```env
 BASE_URL=http://localhost:8000
-USER_EMAIL=user@example.com
-USER_PASSWORD=password123
-ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=admin123
+# 환경 변수는 웹 대시보드에서 입력하세요
+# .env 파일은 사용하지 않습니다
+# 
+# 웹 대시보드에서 다음 환경 변수를 입력하세요:
+# - BASE_URL (필수): 테스트 대상 서버 URL (예: http://localhost:8001)
+# - USER_EMAIL (필수): 사용자 이메일
+# - USER_PASSWORD (필수): 사용자 비밀번호
+# - ADMIN_EMAIL (필수): 관리자 이메일
+# - ADMIN_PASSWORD (필수): 관리자 비밀번호
+# - OPENAI_API_KEY (선택): AI 기능 사용 시 OpenAI API 키
 
 # OpenAI API Key (선택사항 - 고급 AI 요소 탐색을 위해)
 # OPENAI_API_KEY=sk-your-openai-api-key-here
@@ -475,9 +481,16 @@ CMD ["npm", "run", "server"]
 ```typescript
 import { AILoginPage } from './page-objects/ai-login-page';
 
-// 자연어로 로그인
+// 자연어로 로그인 (환경 변수에서 자격증명 가져오기)
 const loginPage = new AILoginPage(page);
-await loginPage.login('user@example.com', 'password123');
+const userEmail = process.env.USER_EMAIL;
+const userPassword = process.env.USER_PASSWORD;
+
+if (!userEmail || !userPassword) {
+  throw new Error('환경 변수가 설정되지 않았습니다. 웹 대시보드에서 입력하세요.');
+}
+
+await loginPage.login(userEmail, userPassword);
 ```
 
 ```typescript
@@ -489,12 +502,12 @@ class MyPage extends AIBasePage {
     await this.clickByDescription('생성 버튼');
     
     // 자연어로 입력
-    await this.fillByDescription('이메일', 'test@example.com');
+    await this.fillByDescription('이메일', process.env.USER_EMAIL || '');
     
     // 자연어로 폼 작성
     await this.fillFormByAI({
       '이름': '홍길동',
-      '이메일': 'hong@example.com',
+      '이메일': process.env.USER_EMAIL || '',
       '전화번호': '010-1234-5678'
     });
     
@@ -611,7 +624,11 @@ await page.waitForLoadState('networkidle');
 ### 4. 환경 변수 사용
 
 ```typescript
-const email = process.env.USER_EMAIL || 'default@example.com';
+// 환경 변수는 웹 대시보드에서 필수로 입력해야 합니다
+const email = process.env.USER_EMAIL;
+if (!email) {
+  throw new Error('USER_EMAIL이 설정되지 않았습니다. 웹 대시보드에서 환경 변수를 입력하세요.');
+}
 ```
 
 ## 🐛 문제 해결

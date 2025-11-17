@@ -77,8 +77,13 @@ test.describe('로그인 테스트', () => {
       // 관리자 로그인에서 사용자 자격증명 사용 시도
       await loginPage.goto('/admin/login');
       
-      const userEmail = process.env.USER_EMAIL || 'user@example.com';
-      const userPassword = process.env.USER_PASSWORD || 'password123';
+      const userEmail = process.env.USER_EMAIL;
+      const userPassword = process.env.USER_PASSWORD;
+      
+      // 환경 변수가 없으면 테스트 실패
+      if (!userEmail || !userPassword) {
+        throw new Error('USER_EMAIL과 USER_PASSWORD가 설정되지 않았습니다. 웹 대시보드에서 환경 변수를 입력하세요.');
+      }
       
       await loginPage.login(userEmail, userPassword);
       

@@ -26,6 +26,11 @@ const TEST_DIR = path.join(__dirname, '..');
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// favicon.ico 요청 처리 (404 방지)
+app.get('/favicon.ico', (req, res) => {
+  res.status(204).end();
+});
+
 // 테스트 실행 상태 저장
 const testRuns = new Map();
 
@@ -47,9 +52,13 @@ async function runTests(testFile = null, options = {}, providedRunId = null) {
     
     console.log('실행 명령어:', command);
     
-    // 환경 변수 준비: 시스템 환경 변수 + 웹에서 받은 값만 사용 (.env 파일 사용 안 함)
+    // 환경 변수 준비: 필수 시스템 변수만 유지 + 웹에서 받은 값만 사용
+    // CI 관련 변수는 유지하되, 테스트 관련 환경 변수는 웹에서 받은 값만 사용
     const envVars = {
-      ...process.env,
+      // 필수 시스템 변수만 유지
+      PATH: process.env.PATH,
+      NODE_ENV: process.env.NODE_ENV || 'test',
+      CI: process.env.CI,
     };
     
     // 웹에서 받은 환경 변수만 사용 (우선 적용)
@@ -57,7 +66,23 @@ async function runTests(testFile = null, options = {}, providedRunId = null) {
       Object.assign(envVars, options.env);
     }
     
-    console.log('환경 변수:', Object.keys(envVars).filter(k => k.startsWith('BASE') || k.startsWith('USER') || k.startsWith('ADMIN')));
+    // 색상 설정: 웹에서 명시적으로 설정하지 않았으면 기본값 설정
+    // NO_COLOR와 FORCE_COLOR 충돌 방지
+    if (!envVars.NO_COLOR && !envVars.FORCE_COLOR) {
+      envVars.FORCE_COLOR = '1'; // 기본값: 색상 출력
+    } else if (envVars.NO_COLOR) {
+      // NO_COLOR가 설정되면 FORCE_COLOR 제거하여 충돌 방지
+      delete envVars.FORCE_COLOR;
+    }
+    
+    console.log('사용할 환경 변수:', Object.keys(envVars).filter(k => 
+      k.startsWith('BASE') || 
+      k.startsWith('USER') || 
+      k.startsWith('ADMIN') || 
+      k.startsWith('OPENAI') ||
+      k === 'FORCE_COLOR' ||
+      k === 'NO_COLOR'
+    ));
     
     const runData = {
       id: runId,
@@ -213,20 +238,56 @@ app.get('/api/tests/status/:runId', (req, res) => {
  */
 app.post('/api/tests/stop/:runId', (req, res) => {
   try {
-    const run = testRuns.get(req.params.runId);
+    const runId = req.params.runId;
+    console.log(`테스트 중지 요청: ${runId}`);
+    console.log(`현재 저장된 테스트 실행 ID:`, Array.from(testRuns.keys()));
+    
+    const run = testRuns.get(runId);
     if (!run) {
-      return res.status(404).json({ success: false, error: 'Test run not found' });
+      console.log(`테스트 실행 ${runId}를 찾을 수 없습니다.`);
+      return res.status(404).json({ 
+        success: false, 
+        error: `Test run ${runId} not found. It may have already completed or the server was restarted.`,
+        availableRuns: Array.from(testRuns.keys())
+      });
     }
     
+    console.log(`테스트 상태: ${run.status}`);
+    
+    // 이미 완료되거나 중지된 경우에도 성공 응답 반환
     if (run.status !== 'running') {
-      return res.json({ success: false, error: `Test is not running. Current status: ${run.status}` });
+      console.log(`테스트가 이미 ${run.status} 상태입니다.`);
+      return res.json({ 
+        success: true, 
+        message: `Test is already ${run.status}`,
+        run: (() => {
+          const { process, ...runData } = run;
+          return runData;
+        })()
+      });
     }
     
     if (!run.process) {
-      return res.json({ success: false, error: 'Process reference not found' });
+      console.log(`프로세스 참조가 없습니다. 상태만 업데이트합니다.`);
+      // 프로세스가 없어도 상태를 중지로 업데이트
+      run.status = 'stopped';
+      run.endTime = new Date();
+      run.duration = run.endTime - run.startTime;
+      run.output.push('\n[테스트가 사용자에 의해 중지되었습니다 (프로세스가 이미 종료됨)]');
+      testRuns.set(runId, run);
+      
+      io.emit('test-stopped', { runId, status: 'stopped' });
+      io.emit('test-complete', { runId, status: 'stopped', exitCode: -1 });
+      
+      return res.json({ 
+        success: true, 
+        message: 'Test marked as stopped (process already terminated)',
+        run: (() => {
+          const { process, ...runData } = run;
+          return runData;
+        })()
+      });
     }
-    
-    console.log(`테스트 중지 요청: ${runId}`);
     
     // Windows 환경에서는 프로세스 트리 종료
     const isWindows = process.platform === 'win32';

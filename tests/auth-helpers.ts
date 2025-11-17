@@ -12,8 +12,14 @@ export async function loginAsUser(
   email?: string,
   password?: string
 ): Promise<void> {
-  const userEmail = email || process.env.USER_EMAIL || 'user@example.com';
-  const userPassword = password || process.env.USER_PASSWORD || 'password123';
+  // 환경 변수에서 가져오거나 파라미터로 받은 값 사용 (기본값 없음)
+  const userEmail = email || process.env.USER_EMAIL;
+  const userPassword = password || process.env.USER_PASSWORD;
+  
+  if (!userEmail || !userPassword) {
+    throw new Error('USER_EMAIL과 USER_PASSWORD가 설정되지 않았습니다. 웹 대시보드에서 환경 변수를 입력하세요.');
+  }
+  
   const loginPage = new LoginPage(page);
 
   await loginPage.goto('/login');
@@ -36,8 +42,14 @@ export async function loginAsAdmin(
   email?: string,
   password?: string
 ): Promise<void> {
-  const adminEmail = email || process.env.ADMIN_EMAIL || 'admin@example.com';
-  const adminPassword = password || process.env.ADMIN_PASSWORD || 'admin123';
+  // 환경 변수에서 가져오거나 파라미터로 받은 값 사용 (기본값 없음)
+  const adminEmail = email || process.env.ADMIN_EMAIL;
+  const adminPassword = password || process.env.ADMIN_PASSWORD;
+  
+  if (!adminEmail || !adminPassword) {
+    throw new Error('ADMIN_EMAIL과 ADMIN_PASSWORD가 설정되지 않았습니다. 웹 대시보드에서 환경 변수를 입력하세요.');
+  }
+  
   const loginPage = new LoginPage(page);
 
   await loginPage.goto('/admin/login');

@@ -12,8 +12,13 @@ test.describe('AI 기반 로그인 테스트', () => {
       
       await loginPage.goto('/login');
       
-      const userEmail = process.env.USER_EMAIL || 'user@example.com';
-      const userPassword = process.env.USER_PASSWORD || 'password123';
+      const userEmail = process.env.USER_EMAIL;
+      const userPassword = process.env.USER_PASSWORD;
+      
+      // 환경 변수가 없으면 테스트 실패
+      if (!userEmail || !userPassword) {
+        throw new Error('USER_EMAIL과 USER_PASSWORD가 설정되지 않았습니다. 웹 대시보드에서 환경 변수를 입력하세요.');
+      }
       
       // AI 기반 로그인 수행
       await loginPage.login(userEmail, userPassword);
@@ -51,8 +56,13 @@ test.describe('AI 기반 로그인 테스트', () => {
       
       await loginPage.goto('/admin/login');
       
-      const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
-      const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+      const adminEmail = process.env.ADMIN_EMAIL;
+      const adminPassword = process.env.ADMIN_PASSWORD;
+      
+      // 환경 변수가 없으면 테스트 실패
+      if (!adminEmail || !adminPassword) {
+        throw new Error('ADMIN_EMAIL과 ADMIN_PASSWORD가 설정되지 않았습니다. 웹 대시보드에서 환경 변수를 입력하세요.');
+      }
       
       // AI 기반 로그인 수행
       await loginPage.login(adminEmail, adminPassword);
