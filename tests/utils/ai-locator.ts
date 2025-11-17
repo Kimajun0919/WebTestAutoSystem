@@ -40,7 +40,7 @@ export async function findElementByAI(
     for (const pattern of textPatterns) {
       try {
         const textLocator = page.getByText(pattern, { exact: options?.exact || false });
-        if (await textLocator.count({ timeout: 1000 }) > 0) {
+        if (await textLocator.first().isVisible({ timeout: 1000 }).catch(() => false)) {
           return textLocator.first();
         }
       } catch (e) {
@@ -52,7 +52,7 @@ export async function findElementByAI(
     for (const pattern of textPatterns) {
       try {
         const labelLocator = page.getByLabel(pattern, { exact: options?.exact || false });
-        if (await labelLocator.count({ timeout: 1000 }) > 0) {
+        if (await labelLocator.first().isVisible({ timeout: 1000 }).catch(() => false)) {
           return labelLocator.first();
         }
       } catch (e) {
@@ -62,25 +62,25 @@ export async function findElementByAI(
 
     // 4단계: 플레이스홀더 기반 탐색
     const placeholderLocator = page.locator(`[placeholder*="${description}" i]`);
-    if (await placeholderLocator.count({ timeout: 1000 }) > 0) {
+    if (await placeholderLocator.first().isVisible({ timeout: 1000 }).catch(() => false)) {
       return placeholderLocator.first();
     }
 
     // 5단계: name 속성 기반 탐색
     const nameLocator = page.locator(`[name*="${description}" i]`);
-    if (await nameLocator.count({ timeout: 1000 }) > 0) {
+    if (await nameLocator.first().isVisible({ timeout: 1000 }).catch(() => false)) {
       return nameLocator.first();
     }
 
     // 6단계: id 기반 탐색
     const idLocator = page.locator(`#${description.toLowerCase().replace(/\s+/g, '-')}, [id*="${description}" i]`);
-    if (await idLocator.count({ timeout: 1000 }) > 0) {
+    if (await idLocator.first().isVisible({ timeout: 1000 }).catch(() => false)) {
       return idLocator.first();
     }
 
     // 7단계: title/aria-label 기반 탐색
     const ariaLocator = page.locator(`[title*="${description}" i], [aria-label*="${description}" i]`);
-    if (await ariaLocator.count({ timeout: 1000 }) > 0) {
+    if (await ariaLocator.first().isVisible({ timeout: 1000 }).catch(() => false)) {
       return ariaLocator.first();
     }
 
@@ -89,7 +89,7 @@ export async function findElementByAI(
     for (const pattern of structuralPatterns) {
       try {
         const structLocator = page.locator(pattern);
-        if (await structLocator.count({ timeout: 1000 }) > 0) {
+        if (await structLocator.first().isVisible({ timeout: 1000 }).catch(() => false)) {
           return structLocator.first();
         }
       } catch (e) {

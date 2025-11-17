@@ -397,6 +397,65 @@ app.get('/api/tests/report', async (req, res) => {
 app.use('/report', express.static(path.join(TEST_DIR, 'playwright-report')));
 
 /**
+ * 리포트 삭제
+ */
+app.delete('/api/tests/report', async (req, res) => {
+  try {
+    const reportDir = path.join(TEST_DIR, 'playwright-report');
+    const testResultsDir = path.join(TEST_DIR, 'test-results');
+    
+    let deleted = [];
+    let errors = [];
+    
+    // playwright-report 디렉토리 삭제
+    try {
+      const reportExists = await fs.access(reportDir).then(() => true).catch(() => false);
+      if (reportExists) {
+        await fs.rm(reportDir, { recursive: true, force: true });
+        deleted.push('playwright-report');
+      }
+    } catch (error) {
+      errors.push(`playwright-report 삭제 실패: ${error.message}`);
+    }
+    
+    // test-results 디렉토리 삭제 (선택사항)
+    const { includeTestResults } = req.query;
+    if (includeTestResults === 'true') {
+      try {
+        const testResultsExists = await fs.access(testResultsDir).then(() => true).catch(() => false);
+        if (testResultsExists) {
+          await fs.rm(testResultsDir, { recursive: true, force: true });
+          deleted.push('test-results');
+        }
+      } catch (error) {
+        errors.push(`test-results 삭제 실패: ${error.message}`);
+      }
+    }
+    
+    if (errors.length > 0 && deleted.length === 0) {
+      return res.status(500).json({ 
+        success: false, 
+        error: '리포트 삭제 실패',
+        details: errors 
+      });
+    }
+    
+    res.json({ 
+      success: true, 
+      message: '리포트가 삭제되었습니다.',
+      deleted,
+      errors: errors.length > 0 ? errors : undefined
+    });
+  } catch (error) {
+    console.error('리포트 삭제 오류:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+/**
  * BASE_URL 접속 가능 여부 확인
  */
 app.post('/api/tests/check-url', async (req, res) => {
