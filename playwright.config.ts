@@ -1,15 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
-import dotenv from 'dotenv';
-
-/**
- * 환경 변수를 파일에서 읽어옵니다.
- * https://github.com/motdotla/dotenv
- */
-dotenv.config();
 
 /**
  * Playwright 테스트 설정
  * 자세한 내용: https://playwright.dev/docs/test-configuration
+ * 
+ * 주의: 환경 변수는 웹 대시보드에서만 입력받습니다.
+ * .env 파일은 사용하지 않습니다.
  */
 export default defineConfig({
   testDir: './tests',

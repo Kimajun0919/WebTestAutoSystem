@@ -32,47 +32,64 @@ const testRuns = new Map();
 /**
  * 테스트 실행 함수
  */
-async function runTests(testFile = null, options = {}) {
+async function runTests(testFile = null, options = {}, providedRunId = null) {
   return new Promise((resolve, reject) => {
-    const runId = Date.now().toString();
+    const runId = providedRunId || Date.now().toString();
     const testCommand = testFile 
-      ? `npx playwright test ${testFile}`
+      ? `npx playwright test "${testFile}"`
       : 'npm test';
     
-    const command = `cd "${TEST_DIR}" && ${testCommand}`;
+    // Windows 환경을 고려한 명령어
+    const isWindows = process.platform === 'win32';
+    const command = isWindows 
+      ? `cd /d "${TEST_DIR}" && ${testCommand}`
+      : `cd "${TEST_DIR}" && ${testCommand}`;
     
-    // 환경 변수 준비: 기본값 + .env 파일 + 웹에서 받은 값
+    console.log('실행 명령어:', command);
+    
+    // 환경 변수 준비: 시스템 환경 변수 + 웹에서 받은 값만 사용 (.env 파일 사용 안 함)
     const envVars = {
       ...process.env,
-      // .env 파일이 있으면 dotenv로 로드한 값 사용
     };
     
-    // 웹에서 받은 환경 변수가 있으면 우선 적용
-    if (options.env) {
+    // 웹에서 받은 환경 변수만 사용 (우선 적용)
+    if (options && options.env) {
       Object.assign(envVars, options.env);
     }
     
-    testRuns.set(runId, {
+    console.log('환경 변수:', Object.keys(envVars).filter(k => k.startsWith('BASE') || k.startsWith('USER') || k.startsWith('ADMIN')));
+    
+    const runData = {
       id: runId,
       status: 'running',
       startTime: new Date(),
       output: [],
       testFile: testFile || 'all',
-      options
-    });
+      options,
+      process: null // 프로세스 참조 저장용
+    };
+    testRuns.set(runId, runData);
 
-    const process = exec(command, {
+    const childProcess = exec(command, {
       cwd: TEST_DIR,
-      env: envVars
+      env: envVars,
+      shell: isWindows ? 'cmd.exe' : undefined
     }, (error, stdout, stderr) => {
       const run = testRuns.get(runId);
+      // 프로세스 참조 제거 (종료되었으므로)
+      if (run) {
+        run.process = null;
+      }
       if (error) {
+        console.error('테스트 실행 오류:', error);
         run.status = 'failed';
         run.error = error.message;
-        run.output.push(stderr);
+        if (stderr) run.output.push(stderr);
+        if (stdout) run.output.push(stdout);
       } else {
         run.status = 'completed';
-        run.output.push(stdout);
+        if (stdout) run.output.push(stdout);
+        if (stderr) run.output.push(stderr);
       }
       run.endTime = new Date();
       run.duration = run.endTime - run.startTime;
@@ -86,24 +103,51 @@ async function runTests(testFile = null, options = {}) {
     });
 
     // 실시간 출력 전송
-    process.stdout.on('data', (data) => {
+    childProcess.stdout.on('data', (data) => {
       const run = testRuns.get(runId);
-      run.output.push(data.toString());
-      io.emit('test-output', { runId, data: data.toString() });
+      if (run) {
+        run.output.push(data.toString());
+        io.emit('test-output', { runId, data: data.toString() });
+      }
     });
 
-    process.stderr.on('data', (data) => {
+    childProcess.stderr.on('data', (data) => {
       const run = testRuns.get(runId);
-      run.output.push(data.toString());
-      io.emit('test-output', { runId, data: data.toString() });
+      if (run) {
+        run.output.push(data.toString());
+        io.emit('test-output', { runId, data: data.toString() });
+      }
     });
 
     // 프로세스 종료 이벤트
-    process.on('close', (code) => {
+    childProcess.on('close', (code) => {
       const run = testRuns.get(runId);
-      run.exitCode = code;
-      io.emit('test-complete', { runId, status: run.status, exitCode: code });
+      if (run) {
+        run.exitCode = code;
+        if (run.status === 'running') {
+          run.status = code === 0 ? 'completed' : 'failed';
+        }
+        io.emit('test-complete', { runId, status: run.status, exitCode: code });
+      }
     });
+    
+    // 프로세스 에러 이벤트
+    childProcess.on('error', (error) => {
+      console.error('프로세스 실행 오류:', error);
+      const run = testRuns.get(runId);
+      if (run) {
+        run.status = 'failed';
+        run.error = error.message;
+        run.output.push(`프로세스 실행 오류: ${error.message}`);
+        testRuns.set(runId, run);
+        io.emit('test-complete', { runId, status: 'failed', exitCode: -1 });
+      }
+      reject(error);
+    });
+    
+    // 프로세스 참조 저장
+    runData.process = childProcess;
+    testRuns.set(runId, runData);
   });
 }
 
@@ -115,10 +159,39 @@ async function runTests(testFile = null, options = {}) {
 app.post('/api/tests/run', async (req, res) => {
   try {
     const { testFile, options } = req.body;
-    const run = await runTests(testFile, options);
-    res.json({ success: true, runId: run.id, run });
+    console.log('테스트 실행 요청:', { testFile, options });
+    
+    // runId를 먼저 생성
+    const runId = Date.now().toString();
+    
+    // 초기 run 객체 생성
+    const initialRun = {
+      id: runId,
+      status: 'starting',
+      startTime: new Date(),
+      output: [],
+      testFile: testFile || 'all',
+      options: options || {}
+    };
+    testRuns.set(runId, initialRun);
+    
+    // 비동기로 실행 시작 (즉시 응답 반환)
+    runTests(testFile, options, runId).then((run) => {
+      console.log('테스트 실행 완료:', run.id);
+    }).catch((error) => {
+      console.error('테스트 실행 실패:', error);
+      const run = testRuns.get(runId);
+      if (run) {
+        run.status = 'failed';
+        run.error = error.message;
+        testRuns.set(runId, run);
+      }
+    });
+    
+    res.json({ success: true, runId: runId, run: initialRun });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    console.error('API 오류:', error);
+    res.status(500).json({ success: false, error: error.message, stack: error.stack });
   }
 });
 
@@ -130,7 +203,79 @@ app.get('/api/tests/status/:runId', (req, res) => {
   if (!run) {
     return res.status(404).json({ error: 'Test run not found' });
   }
-  res.json(run);
+  // 프로세스 참조는 제외하고 반환 (직렬화 불가능)
+  const { process, ...runData } = run;
+  res.json(runData);
+});
+
+/**
+ * 테스트 실행 중지
+ */
+app.post('/api/tests/stop/:runId', (req, res) => {
+  try {
+    const run = testRuns.get(req.params.runId);
+    if (!run) {
+      return res.status(404).json({ success: false, error: 'Test run not found' });
+    }
+    
+    if (run.status !== 'running') {
+      return res.json({ success: false, error: `Test is not running. Current status: ${run.status}` });
+    }
+    
+    if (!run.process) {
+      return res.json({ success: false, error: 'Process reference not found' });
+    }
+    
+    console.log(`테스트 중지 요청: ${runId}`);
+    
+    // Windows 환경에서는 프로세스 트리 종료
+    const isWindows = process.platform === 'win32';
+    
+    if (isWindows) {
+      // Windows: taskkill로 프로세스 트리 종료
+      const { execSync } = require('child_process');
+      try {
+        // 자식 프로세스의 PID 찾기
+        const childPid = run.process.pid;
+        execSync(`taskkill /F /T /PID ${childPid}`, { timeout: 5000 });
+      } catch (killError) {
+        console.error('프로세스 종료 오류:', killError);
+        // taskkill 실패 시에도 계속 진행
+      }
+    } else {
+      // Unix/Linux: kill로 프로세스 그룹 종료
+      try {
+        process.kill(-run.process.pid, 'SIGTERM');
+      } catch (killError) {
+        console.error('프로세스 종료 오류:', killError);
+      }
+    }
+    
+    // 프로세스 직접 종료 시도
+    try {
+      run.process.kill('SIGTERM');
+    } catch (error) {
+      console.error('프로세스 kill 오류:', error);
+    }
+    
+    // 상태 업데이트
+    run.status = 'stopped';
+    run.endTime = new Date();
+    run.duration = run.endTime - run.startTime;
+    run.output.push('\n[테스트가 사용자에 의해 중지되었습니다]');
+    run.process = null;
+    
+    testRuns.set(req.params.runId, run);
+    
+    // WebSocket으로 중지 알림 전송
+    io.emit('test-stopped', { runId: req.params.runId, status: 'stopped' });
+    io.emit('test-complete', { runId: req.params.runId, status: 'stopped', exitCode: -1 });
+    
+    res.json({ success: true, message: 'Test stopped successfully', run });
+  } catch (error) {
+    console.error('테스트 중지 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 /**

@@ -136,7 +136,12 @@
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0"><i class="bi bi-activity"></i> 실행 중인 테스트</h5>
-                        <span class="badge bg-warning status-badge running" id="currentStatus">실행 중...</span>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-warning status-badge running" id="currentStatus">실행 중...</span>
+                            <button class="btn btn-danger btn-sm" id="stopTestBtn" onclick="stopTest()" style="display: none;">
+                                <i class="bi bi-stop-fill"></i> 중지
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div class="mb-3">
@@ -188,6 +193,17 @@
         socket.on('test-complete', (data) => {
             if (data.runId === currentRunId) {
                 updateStatus(data.status);
+                loadHistory();
+                if (data.status !== 'running') {
+                    currentRunId = null;
+                }
+            }
+        });
+
+        socket.on('test-stopped', (data) => {
+            if (data.runId === currentRunId) {
+                updateStatus('stopped');
+                appendOutput('\n[테스트가 중지되었습니다]');
                 loadHistory();
                 currentRunId = null;
             }
@@ -251,17 +267,64 @@
         // 상태 업데이트
         function updateStatus(status) {
             const statusBadge = document.getElementById('currentStatus');
-            statusBadge.classList.remove('bg-warning', 'bg-success', 'bg-danger', 'running');
+            const stopBtn = document.getElementById('stopTestBtn');
+            statusBadge.classList.remove('bg-warning', 'bg-success', 'bg-danger', 'bg-secondary', 'running');
             
             if (status === 'running') {
                 statusBadge.textContent = '실행 중...';
                 statusBadge.classList.add('bg-warning', 'running');
+                stopBtn.style.display = 'inline-block';
             } else if (status === 'completed') {
                 statusBadge.textContent = '완료';
                 statusBadge.classList.add('bg-success');
+                stopBtn.style.display = 'none';
+            } else if (status === 'stopped') {
+                statusBadge.textContent = '중지됨';
+                statusBadge.classList.add('bg-secondary');
+                stopBtn.style.display = 'none';
             } else {
                 statusBadge.textContent = '실패';
                 statusBadge.classList.add('bg-danger');
+                stopBtn.style.display = 'none';
+            }
+        }
+
+        // 테스트 중지
+        async function stopTest() {
+            if (!currentRunId) {
+                alert('실행 중인 테스트가 없습니다.');
+                return;
+            }
+
+            if (!confirm('실행 중인 테스트를 중지하시겠습니까?')) {
+                return;
+            }
+
+            const stopBtn = document.getElementById('stopTestBtn');
+            stopBtn.disabled = true;
+            stopBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 중지 중...';
+
+            try {
+                const response = await fetch(`/api/tests/stop/${currentRunId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    updateStatus('stopped');
+                    appendOutput('\n[테스트가 사용자에 의해 중지되었습니다]');
+                    loadHistory();
+                } else {
+                    alert('테스트 중지 실패: ' + result.error);
+                    stopBtn.disabled = false;
+                    stopBtn.innerHTML = '<i class="bi bi-stop-fill"></i> 중지';
+                }
+            } catch (error) {
+                alert('오류 발생: ' + error.message);
+                stopBtn.disabled = false;
+                stopBtn.innerHTML = '<i class="bi bi-stop-fill"></i> 중지';
             }
         }
 
@@ -296,7 +359,11 @@
                 historyContainer.innerHTML = history.map(run => {
                     const duration = run.duration ? (run.duration / 1000).toFixed(2) + '초' : '-';
                     const statusClass = run.status === 'completed' ? 'success' : 
-                                       run.status === 'failed' ? 'danger' : 'warning';
+                                       run.status === 'failed' ? 'danger' :
+                                       run.status === 'stopped' ? 'secondary' : 'warning';
+                    const statusText = run.status === 'completed' ? '완료' :
+                                      run.status === 'failed' ? '실패' :
+                                      run.status === 'stopped' ? '중지됨' : '실행 중';
                     
                     return `
                         <div class="col-md-6 col-lg-4 mb-3">
@@ -307,7 +374,7 @@
                                         <small class="text-muted">
                                             ${new Date(run.startTime).toLocaleString('ko-KR')}
                                         </small><br>
-                                        <span class="badge bg-${statusClass}">${run.status}</span>
+                                        <span class="badge bg-${statusClass}">${statusText}</span>
                                         <span class="badge bg-secondary">${duration}</span>
                                     </p>
                                     ${run.runId === currentRunId ? '<span class="badge bg-info">실행 중</span>' : ''}
