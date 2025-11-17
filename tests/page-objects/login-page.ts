@@ -12,17 +12,18 @@ export class LoginPage extends BasePage {
 
   constructor(page: Page) {
     super(page);
-    this.emailInput = page.locator('input[type="email"], input[name="email"]');
+    // 이메일, 아이디, 사용자명 필드 모두 찾기
+    this.emailInput = page.locator('input[type="email"], input[name="email"], input[name="username"], input[name="user_id"], input[name="login"], input[name="account"], input[id*="email" i], input[id*="username" i], input[id*="user" i]').first();
     this.passwordInput = page.locator('input[type="password"], input[name="password"]');
     this.loginButton = page.locator('button[type="submit"]:has-text("Login"), button:has-text("Sign In"), input[type="submit"]');
     this.errorMessage = page.locator('.alert-danger, .error, .text-danger').first();
   }
 
   /**
-   * 이메일 필드에 입력합니다
+   * 이메일 또는 아이디 필드에 입력합니다
    */
-  async fillEmail(email: string): Promise<void> {
-    await this.emailInput.fill(email);
+  async fillEmail(emailOrUsername: string): Promise<void> {
+    await this.emailInput.fill(emailOrUsername);
   }
 
   /**

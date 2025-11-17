@@ -86,19 +86,27 @@
                                     <div class="row g-3">
                                         <div class="col-md-6">
                                             <label class="form-label">BASE_URL <span class="text-danger">*</span></label>
-                                            <input type="text" class="form-control" id="envBaseUrl" placeholder="예: http://localhost:8001" required>
+                                            <div class="input-group">
+                                                <input type="text" class="form-control" id="envBaseUrl" placeholder="예: http://localhost:8001" required>
+                                                <button class="btn btn-outline-secondary" type="button" onclick="checkBaseUrl()" id="checkUrlBtn" title="서버 연결 테스트">
+                                                    <i class="bi bi-arrow-repeat"></i> 연결 확인
+                                                </button>
+                                            </div>
+                                            <small class="text-muted" id="urlCheckResult"></small>
                                         </div>
                                         <div class="col-md-6">
-                                            <label class="form-label">USER_EMAIL <span class="text-danger">*</span></label>
-                                            <input type="email" class="form-control" id="envUserEmail" placeholder="사용자 이메일 입력" required>
+                                            <label class="form-label">USER_EMAIL (아이디 또는 이메일) <span class="text-danger">*</span></label>
+                                            <input type="text" class="form-control" id="envUserEmail" placeholder="사용자 아이디 또는 이메일 입력" required>
+                                            <small class="text-muted">이메일 또는 아이디(사용자명)를 입력하세요</small>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label">USER_PASSWORD <span class="text-danger">*</span></label>
                                             <input type="password" class="form-control" id="envUserPassword" placeholder="사용자 비밀번호 입력" required>
                                         </div>
                                         <div class="col-md-6">
-                                            <label class="form-label">ADMIN_EMAIL <span class="text-danger">*</span></label>
-                                            <input type="email" class="form-control" id="envAdminEmail" placeholder="관리자 이메일 입력" required>
+                                            <label class="form-label">ADMIN_EMAIL (아이디 또는 이메일) <span class="text-danger">*</span></label>
+                                            <input type="text" class="form-control" id="envAdminEmail" placeholder="관리자 아이디 또는 이메일 입력" required>
+                                            <small class="text-muted">이메일 또는 아이디(사용자명)를 입력하세요</small>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label">ADMIN_PASSWORD <span class="text-danger">*</span></label>
@@ -120,6 +128,19 @@
                             </div>
                         </div>
                         
+                        <!-- 사전 체크 섹션 -->
+                        <div class="mb-3">
+                            <button class="btn btn-outline-info btn-sm mb-2" type="button" onclick="runPreCheck()">
+                                <i class="bi bi-check-circle"></i> 실행 전 사전 체크
+                            </button>
+                            <div id="preCheckResults" style="display: none;">
+                                <div class="alert alert-info mb-0">
+                                    <h6 class="alert-heading">사전 체크 결과</h6>
+                                    <div id="preCheckContent"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <div class="row">
                             <div class="col-md-6">
                                 <label class="form-label">테스트 파일 선택</label>
@@ -132,7 +153,7 @@
                                 </select>
                             </div>
                             <div class="col-md-6 d-flex align-items-end">
-                                <button class="btn btn-primary w-100" onclick="runTests()">
+                                <button class="btn btn-primary w-100" onclick="runTests()" id="runTestBtn">
                                     <i class="bi bi-play-fill"></i> 테스트 실행
                                 </button>
                             </div>
@@ -157,8 +178,21 @@
                     </div>
                     <div class="card-body">
                         <div class="mb-3">
-                            <strong>테스트 파일:</strong> <span id="currentTestFile">-</span><br>
-                            <strong>시작 시간:</strong> <span id="currentStartTime">-</span>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>테스트 파일:</strong> <span id="currentTestFile">-</span><br>
+                                    <strong>시작 시간:</strong> <span id="currentStartTime">-</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <div id="testSummary" style="display: none;">
+                                        <strong>테스트 결과 요약:</strong><br>
+                                        <span class="badge bg-success" id="summaryPassed">0 통과</span>
+                                        <span class="badge bg-danger" id="summaryFailed">0 실패</span>
+                                        <span class="badge bg-warning" id="summarySkipped">0 건너뜀</span>
+                                        <span class="badge bg-secondary" id="summaryTotal">0 전체</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         <div class="output-container" id="testOutput">
                             <div class="output-line">테스트 실행 대기 중...</div>
@@ -299,10 +333,45 @@
             }
         }
 
+        // 전역 에러 핸들러 - 브라우저 확장 프로그램 오류 무시
+        window.addEventListener('error', (event) => {
+            // 브라우저 확장 프로그램 관련 오류는 무시
+            if (event.message && (
+                event.message.includes('message channel closed') ||
+                event.message.includes('Extension context invalidated') ||
+                event.message.includes('chrome-extension://') ||
+                event.message.includes('moz-extension://')
+            )) {
+                event.preventDefault();
+                return false;
+            }
+        });
+        
+        // Promise rejection 핸들러
+        window.addEventListener('unhandledrejection', (event) => {
+            // 브라우저 확장 프로그램 관련 오류는 무시
+            if (event.reason && typeof event.reason === 'string' && (
+                event.reason.includes('message channel closed') ||
+                event.reason.includes('Extension context invalidated') ||
+                event.reason.includes('chrome-extension://') ||
+                event.reason.includes('moz-extension://')
+            )) {
+                event.preventDefault();
+                return false;
+            }
+        });
+        
         // 페이지 로드 완료 시 실행
         document.addEventListener('DOMContentLoaded', () => {
             loadSavedValues();
             setupAutoSave();
+            // 페이지 로드 시 자동으로 테스트 목록 불러오기
+            loadTestList().catch(err => {
+                // 브라우저 확장 프로그램 오류가 아닌 경우만 로그 출력
+                if (!err.message || !err.message.includes('message channel closed')) {
+                    console.error('초기 테스트 목록 로드 실패:', err);
+                }
+            });
         });
 
         // WebSocket 이벤트 리스너
@@ -315,6 +384,10 @@
         socket.on('test-complete', (data) => {
             if (data.runId === currentRunId) {
                 updateStatus(data.status);
+                
+                // 테스트 결과 요약 업데이트
+                updateTestSummary(data.runId);
+                
                 loadHistory();
                 if (data.status !== 'running') {
                     // 테스트가 완료되면 몇 초 후에 currentRunId 초기화
@@ -341,6 +414,121 @@
             }
         });
 
+        // BASE_URL 연결 테스트
+        async function checkBaseUrl() {
+            const url = document.getElementById('envBaseUrl').value.trim();
+            const resultEl = document.getElementById('urlCheckResult');
+            const btn = document.getElementById('checkUrlBtn');
+            
+            if (!url) {
+                resultEl.innerHTML = '<span class="text-danger">URL을 입력하세요.</span>';
+                return;
+            }
+            
+            // 버튼 비활성화 및 로딩 표시
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 확인 중...';
+            resultEl.innerHTML = '<span class="text-info">연결 확인 중...</span>';
+            
+            try {
+                const response = await fetch('/api/tests/check-url', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.accessible) {
+                    resultEl.innerHTML = `<span class="text-success"><i class="bi bi-check-circle"></i> ${data.message} (${data.status})</span>`;
+                } else {
+                    resultEl.innerHTML = `<span class="text-danger"><i class="bi bi-x-circle"></i> ${data.error || '연결 실패'}</span>`;
+                    if (data.details) {
+                        resultEl.innerHTML += `<br><small>${data.details}</small>`;
+                    }
+                }
+            } catch (error) {
+                resultEl.innerHTML = `<span class="text-danger"><i class="bi bi-x-circle"></i> 연결 확인 실패: ${error.message}</span>`;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> 연결 확인';
+            }
+        }
+        
+        // 사전 체크 실행
+        async function runPreCheck() {
+            const baseUrl = document.getElementById('envBaseUrl').value.trim();
+            const userEmail = document.getElementById('envUserEmail').value.trim();
+            const userPassword = document.getElementById('envUserPassword').value.trim();
+            const adminEmail = document.getElementById('envAdminEmail').value.trim();
+            const adminPassword = document.getElementById('envAdminPassword').value.trim();
+            const openaiKey = document.getElementById('envOpenAIApiKey').value.trim();
+            const noColor = document.getElementById('envNoColor').value.trim();
+            
+            const env = {};
+            if (baseUrl) env.BASE_URL = baseUrl;
+            if (userEmail) env.USER_EMAIL = userEmail;
+            if (userPassword) env.USER_PASSWORD = userPassword;
+            if (adminEmail) env.ADMIN_EMAIL = adminEmail;
+            if (adminPassword) env.ADMIN_PASSWORD = adminPassword;
+            if (openaiKey) env.OPENAI_API_KEY = openaiKey;
+            if (noColor === '1') env.NO_COLOR = '1';
+            
+            const resultsEl = document.getElementById('preCheckResults');
+            const contentEl = document.getElementById('preCheckContent');
+            
+            resultsEl.style.display = 'block';
+            contentEl.innerHTML = '<div class="spinner-border spinner-border-sm"></div> 체크 중...';
+            
+            try {
+                const response = await fetch('/api/tests/pre-check', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ env })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    let html = '';
+                    const checkLabels = {
+                        baseUrl: 'BASE_URL 형식',
+                        userEmail: '사용자 아이디/이메일 형식',
+                        adminEmail: '관리자 아이디/이메일 형식',
+                        playwrightInstalled: 'Playwright 설치'
+                    };
+                    
+                    Object.keys(data.checks).forEach(key => {
+                        const check = data.checks[key];
+                        const icon = check.passed 
+                            ? '<i class="bi bi-check-circle-fill text-success"></i>' 
+                            : '<i class="bi bi-x-circle-fill text-danger"></i>';
+                        const badge = check.passed 
+                            ? '<span class="badge bg-success">통과</span>' 
+                            : '<span class="badge bg-danger">실패</span>';
+                        
+                        html += `<div class="mb-2">
+                            ${icon} <strong>${checkLabels[key] || key}:</strong> ${badge}
+                            <div class="ms-4 text-muted small">${check.message}</div>
+                            ${check.details ? `<div class="ms-4 text-muted small">${check.details}</div>` : ''}
+                        </div>`;
+                    });
+                    
+                    const alertClass = data.allPassed ? 'alert-success' : 'alert-warning';
+                    resultsEl.querySelector('.alert').className = `alert ${alertClass} mb-0`;
+                    contentEl.innerHTML = html;
+                    
+                    if (!data.allPassed) {
+                        contentEl.innerHTML += '<div class="mt-2 text-danger"><i class="bi bi-exclamation-triangle"></i> 일부 체크 항목이 실패했습니다. 테스트 실행 전에 문제를 해결하세요.</div>';
+                    }
+                } else {
+                    contentEl.innerHTML = `<div class="text-danger">사전 체크 실행 실패: ${data.error}</div>`;
+                }
+            } catch (error) {
+                contentEl.innerHTML = `<div class="text-danger">사전 체크 오류: ${error.message}</div>`;
+            }
+        }
+        
         // 테스트 실행
         async function runTests() {
             const testFile = document.getElementById('testFileSelect').value;
@@ -426,7 +614,27 @@
             document.getElementById('currentTestFile').textContent = run.testFile || '전체 테스트';
             document.getElementById('currentStartTime').textContent = new Date(run.startTime).toLocaleString('ko-KR');
             document.getElementById('testOutput').innerHTML = '';
+            document.getElementById('testSummary').style.display = 'none';
             updateStatus('running');
+        }
+        
+        // 테스트 결과 요약 업데이트
+        async function updateTestSummary(runId) {
+            try {
+                const response = await fetch(`/api/tests/status/${runId}`);
+                const run = await response.json();
+                
+                if (run.summary) {
+                    const summaryEl = document.getElementById('testSummary');
+                    document.getElementById('summaryPassed').textContent = `${run.summary.passed || 0} 통과`;
+                    document.getElementById('summaryFailed').textContent = `${run.summary.failed || 0} 실패`;
+                    document.getElementById('summarySkipped').textContent = `${run.summary.skipped || 0} 건너뜀`;
+                    document.getElementById('summaryTotal').textContent = `${run.summary.total || 0} 전체`;
+                    summaryEl.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('테스트 요약 업데이트 오류:', error);
+            }
         }
 
         // 상태 업데이트
@@ -566,10 +774,47 @@
         async function loadTestList() {
             try {
                 const response = await fetch('/api/tests/list');
+                if (!response.ok) {
+                    throw new Error(`서버 오류: ${response.status}`);
+                }
                 const data = await response.json();
-                console.log('테스트 목록:', data);
-                alert('테스트 목록을 콘솔에서 확인하세요.');
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // 개발 모드에서만 상세 로그 출력
+                if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                    console.debug('테스트 목록:', data);
+                }
+                
+                // 테스트 파일 선택 드롭다운 업데이트
+                const select = document.getElementById('testFileSelect');
+                const currentValue = select.value;
+                
+                // 기존 옵션 초기화 (첫 번째 "전체 테스트" 옵션은 유지)
+                select.innerHTML = '<option value="">전체 테스트</option>';
+                
+                // 테스트 파일 목록 추가
+                if (data.tests && data.tests.length > 0) {
+                    data.tests.forEach(test => {
+                        const option = document.createElement('option');
+                        option.value = test.file;
+                        option.textContent = test.file;
+                        select.appendChild(option);
+                    });
+                    
+                    // 이전에 선택했던 값이 있으면 복원
+                    if (currentValue) {
+                        select.value = currentValue;
+                    }
+                    
+                    alert(`테스트 목록을 불러왔습니다. (${data.count}개 파일)`);
+                } else {
+                    alert('테스트 파일을 찾을 수 없습니다. tests 디렉토리에 .spec.ts 파일이 있는지 확인하세요.');
+                }
             } catch (error) {
+                console.error('테스트 목록 로드 오류:', error);
                 alert('테스트 목록 로드 실패: ' + error.message);
             }
         }
