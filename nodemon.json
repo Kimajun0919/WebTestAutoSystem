@@ -1,0 +1,8 @@
+{
+  "watch": ["server"],
+  "ext": "js,json",
+  "ignore": ["node_modules", "tests", "test-results", "playwright-report"],
+  "exec": "node server/app.js",
+  "delay": 1000
+}
+

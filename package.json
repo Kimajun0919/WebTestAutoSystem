@@ -30,6 +30,7 @@
     "@playwright/test": "^1.40.0",
     "@types/node": "^20.10.0",
     "dotenv": "^16.3.1",
+    "nodemon": "^3.1.11",
     "typescript": "^5.3.3"
   },
   "dependencies": {
@@ -38,4 +39,3 @@
     "socket.io": "^4.5.4"
   }
 }
-

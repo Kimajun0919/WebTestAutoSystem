@@ -73,9 +73,14 @@
                     <div class="card-body">
                         <!-- 환경 변수 입력 섹션 -->
                         <div class="mb-4">
-                            <button class="btn btn-outline-secondary btn-sm mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#envCollapse" aria-expanded="false" aria-controls="envCollapse">
-                                <i class="bi bi-gear"></i> 환경 변수 설정 (선택사항 - .env 파일이 없을 때 사용)
-                            </button>
+                            <div class="btn-group mb-2" role="group">
+                                <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#envCollapse" aria-expanded="false" aria-controls="envCollapse">
+                                    <i class="bi bi-gear"></i> 환경 변수 설정 (선택사항 - .env 파일이 없을 때 사용)
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm" type="button" onclick="clearSavedValues()" title="저장된 환경 변수 삭제">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
                             <div class="collapse" id="envCollapse">
                                 <div class="card card-body bg-light">
                                     <div class="row g-3">
@@ -182,6 +187,107 @@
         // Socket.IO 연결
         const socket = io();
         let currentRunId = null;
+
+        // localStorage 키
+        const STORAGE_KEYS = {
+            BASE_URL: 'test_env_base_url',
+            USER_EMAIL: 'test_env_user_email',
+            USER_PASSWORD: 'test_env_user_password',
+            ADMIN_EMAIL: 'test_env_admin_email',
+            ADMIN_PASSWORD: 'test_env_admin_password',
+            OPENAI_API_KEY: 'test_env_openai_api_key',
+            TEST_FILE: 'test_selected_file'
+        };
+
+        // 페이지 로드 시 저장된 값 복원
+        function loadSavedValues() {
+            // 환경 변수 복원
+            const baseUrl = localStorage.getItem(STORAGE_KEYS.BASE_URL);
+            if (baseUrl) document.getElementById('envBaseUrl').value = baseUrl;
+            
+            const userEmail = localStorage.getItem(STORAGE_KEYS.USER_EMAIL);
+            if (userEmail) document.getElementById('envUserEmail').value = userEmail;
+            
+            const userPassword = localStorage.getItem(STORAGE_KEYS.USER_PASSWORD);
+            if (userPassword) document.getElementById('envUserPassword').value = userPassword;
+            
+            const adminEmail = localStorage.getItem(STORAGE_KEYS.ADMIN_EMAIL);
+            if (adminEmail) document.getElementById('envAdminEmail').value = adminEmail;
+            
+            const adminPassword = localStorage.getItem(STORAGE_KEYS.ADMIN_PASSWORD);
+            if (adminPassword) document.getElementById('envAdminPassword').value = adminPassword;
+            
+            const openaiKey = localStorage.getItem(STORAGE_KEYS.OPENAI_API_KEY);
+            if (openaiKey) document.getElementById('envOpenAIApiKey').value = openaiKey;
+            
+            // 테스트 파일 선택 복원
+            const testFile = localStorage.getItem(STORAGE_KEYS.TEST_FILE);
+            if (testFile) document.getElementById('testFileSelect').value = testFile;
+        }
+
+        // 입력 필드 값 저장
+        function saveValue(key, value) {
+            if (value && value.trim()) {
+                localStorage.setItem(key, value.trim());
+            } else {
+                localStorage.removeItem(key);
+            }
+        }
+
+        // 입력 필드 변경 시 자동 저장
+        function setupAutoSave() {
+            document.getElementById('envBaseUrl').addEventListener('input', (e) => {
+                saveValue(STORAGE_KEYS.BASE_URL, e.target.value);
+            });
+            
+            document.getElementById('envUserEmail').addEventListener('input', (e) => {
+                saveValue(STORAGE_KEYS.USER_EMAIL, e.target.value);
+            });
+            
+            document.getElementById('envUserPassword').addEventListener('input', (e) => {
+                saveValue(STORAGE_KEYS.USER_PASSWORD, e.target.value);
+            });
+            
+            document.getElementById('envAdminEmail').addEventListener('input', (e) => {
+                saveValue(STORAGE_KEYS.ADMIN_EMAIL, e.target.value);
+            });
+            
+            document.getElementById('envAdminPassword').addEventListener('input', (e) => {
+                saveValue(STORAGE_KEYS.ADMIN_PASSWORD, e.target.value);
+            });
+            
+            document.getElementById('envOpenAIApiKey').addEventListener('input', (e) => {
+                saveValue(STORAGE_KEYS.OPENAI_API_KEY, e.target.value);
+            });
+            
+            document.getElementById('testFileSelect').addEventListener('change', (e) => {
+                saveValue(STORAGE_KEYS.TEST_FILE, e.target.value);
+            });
+        }
+
+        // 저장된 값 모두 삭제
+        function clearSavedValues() {
+            if (confirm('저장된 모든 환경 변수를 삭제하시겠습니까?')) {
+                Object.values(STORAGE_KEYS).forEach(key => {
+                    localStorage.removeItem(key);
+                });
+                // 입력 필드 초기화
+                document.getElementById('envBaseUrl').value = '';
+                document.getElementById('envUserEmail').value = '';
+                document.getElementById('envUserPassword').value = '';
+                document.getElementById('envAdminEmail').value = '';
+                document.getElementById('envAdminPassword').value = '';
+                document.getElementById('envOpenAIApiKey').value = '';
+                document.getElementById('testFileSelect').value = '';
+                alert('저장된 값이 모두 삭제되었습니다.');
+            }
+        }
+
+        // 페이지 로드 완료 시 실행
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSavedValues();
+            setupAutoSave();
+        });
 
         // WebSocket 이벤트 리스너
         socket.on('test-output', (data) => {
