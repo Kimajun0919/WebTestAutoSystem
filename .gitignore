@@ -7,4 +7,5 @@ node_modules/
 *.tmp
 out/
 screenshots/
+tests/fixtures/site-map.json
 

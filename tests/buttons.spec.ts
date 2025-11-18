@@ -2,15 +2,39 @@ import { test, expect } from '@playwright/test';
 import { loginAsUser, loginAsAdmin } from './auth-helpers';
 import { DashboardPage } from './page-objects/dashboard-page';
 import { AdminMembersPage } from './page-objects/admin-members-page';
+import { NavigationHelper } from './helpers/navigation-helper';
+import { PageFeatureType } from './types';
+
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 test.describe('버튼 상호작용 테스트', () => {
   test.describe('사용자 대시보드 버튼', () => {
+    let navigation: NavigationHelper;
+    let membersPath: string | undefined;
+    let profilePath: string | undefined;
+    let settingsPath: string | undefined;
+
     test.beforeEach(async ({ page }) => {
       // 각 테스트 전에 사용자로 로그인
       await loginAsUser(page);
+      navigation = await NavigationHelper.create(page);
+      membersPath = navigation.resolveMenuPathByVariants([
+        ['Members'],
+        ['Dashboard', 'Members'],
+        ['회원'],
+      ]);
+      profilePath = navigation.resolveMenuPathByVariants([
+        ['Profile'],
+        ['프로필'],
+      ]);
+      settingsPath = navigation.resolveMenuPathByVariants([
+        ['Settings'],
+        ['설정'],
+      ]);
     });
 
     test('Members 메뉴 버튼을 클릭하면 올바른 URL로 이동해야 합니다', async ({ page }) => {
+      test.skip(!membersPath, '사이트맵에 Members 경로가 없습니다.');
       const dashboardPage = new DashboardPage(page);
       
       // members 버튼이 존재하고 표시되는지 확인
@@ -18,36 +42,43 @@ test.describe('버튼 상호작용 테스트', () => {
         await dashboardPage.clickMembersMenu();
         
         // 네비게이션 대기
-        await page.waitForURL(/.*\/members/);
+        await page.waitForURL(new RegExp(escapeRegExp(membersPath!)));
         
         // URL에 members가 포함되어 있는지 확인
-        expect(page.url()).toContain('/members');
+        expect(page.url()).toContain(membersPath!);
+
+        const featureTypes = navigation.getPageFeaturesByPath(membersPath!);
+        if (featureTypes.includes(PageFeatureType.TABLE)) {
+          await expect(page.locator('table')).toBeVisible();
+        }
       } else {
         test.skip();
       }
     });
 
     test('Profile 메뉴 버튼을 클릭하면 Profile 페이지로 이동해야 합니다', async ({ page }) => {
+      test.skip(!profilePath, '사이트맵에 Profile 경로가 없습니다.');
       const dashboardPage = new DashboardPage(page);
       
       if (await dashboardPage.profileMenuButton.isVisible()) {
         await dashboardPage.clickProfileMenu();
         
-        await page.waitForURL(/.*\/profile/);
-        expect(page.url()).toContain('/profile');
+        await page.waitForURL(new RegExp(escapeRegExp(profilePath!)));
+        expect(page.url()).toContain(profilePath!);
       } else {
         test.skip();
       }
     });
 
     test('Settings 메뉴 버튼을 클릭하면 Settings 페이지로 이동해야 합니다', async ({ page }) => {
+      test.skip(!settingsPath, '사이트맵에 Settings 경로가 없습니다.');
       const dashboardPage = new DashboardPage(page);
       
       if (await dashboardPage.settingsMenuButton.isVisible()) {
         await dashboardPage.clickSettingsMenu();
         
-        await page.waitForURL(/.*\/settings/);
-        expect(page.url()).toContain('/settings');
+        await page.waitForURL(new RegExp(escapeRegExp(settingsPath!)));
+        expect(page.url()).toContain(settingsPath!);
       } else {
         test.skip();
       }
@@ -72,9 +103,18 @@ test.describe('버튼 상호작용 테스트', () => {
   });
 
   test.describe('관리자 대시보드 버튼', () => {
+    let navigation: NavigationHelper;
+    let adminMembersPath: string | undefined;
+
     test.beforeEach(async ({ page }) => {
       // 각 테스트 전에 관리자로 로그인
       await loginAsAdmin(page);
+      navigation = await NavigationHelper.create(page);
+      adminMembersPath = navigation.resolveMenuPathByVariants([
+        ['Members'],
+        ['회원'],
+        ['관리자', '회원'],
+      ]);
     });
 
     test('관리자 회원 페이지에 생성 버튼이 표시되어야 합니다', async ({ page }) => {

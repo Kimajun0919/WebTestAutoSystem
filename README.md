@@ -21,9 +21,15 @@ WebTestAutoSystem/
     ├── buttons.spec.ts           # 버튼 상호작용 테스트
     ├── crud.spec.ts              # CRUD 작업 테스트
     ├── ai-login.spec.ts          # AI 기반 로그인 테스트
-    ├── utils/                    # 유틸리티 함수
-    │   ├── ai-locator.ts         # AI 기반 요소 탐색
-    │   └── openai-locator.ts     # OpenAI 통합
+    ├── helpers/                  # 헬퍼 함수
+    │   ├── ai-locator.ts         # AI 기반 요소 탐색 (OpenAI 통합 포함)
+    │   ├── assertion-helpers.ts  # 어설션 헬퍼
+    │   ├── error-handler.ts      # 에러 핸들링
+    │   ├── logger.ts             # 로깅 유틸리티
+    │   ├── navigation-helper.ts  # 네비게이션 헬퍼
+    │   ├── site-map-builder.ts   # 사이트맵 빌더
+    │   ├── site-map-store.ts     # 사이트맵 저장소
+    │   └── wait-helpers.ts       # 대기 헬퍼
     └── page-objects/             # 페이지 객체 패턴 구현
         ├── base-page.ts          # 기본 페이지 클래스
         ├── ai-base-page.ts       # AI 기반 페이지 클래스
@@ -543,6 +549,38 @@ class MyPage extends AIBasePage {
 8. 구조적 패턴 매칭
 
 ### OpenAI 통합 (선택사항)
+# 🗺️ 사이트 구조 기반 테스트 파이프라인 (신규)
+
+테스트 실행 전에 **SiteMapBuilder**가 자동으로 사이트 구조를 스캔하여 메뉴 트리와 페이지 기능을 분석합니다. 이 정보는 `tests/fixtures/site-map.json`에 저장되어, 이후 테스트에서 NavigationHelper를 통해 활용됩니다.
+
+### 동작 흐름
+1. **Global Setup** (`tests/global-setup.ts`)
+   - BASE_URL 접속 → 공용/사용자/관리자 순으로 사이트 구조 스캔
+   - 각 페이지의 핵심 기능(폼, 테이블, 모달 등) 태깅
+   - 결과를 JSON으로 저장(`site-map.json`)
+2. **NavigationHelper**
+   - 저장된 사이트맵을 로드해 메뉴 경로 및 페이지 기능을 조회
+   - 테스트 내에서 `gotoMenuPath`, `resolveMenuPath`, `hasFeature` 등을 통해 동적으로 페이지를 탐색하고 검증
+3. **테스트 사용 예시**
+   ```ts
+   const navigation = await NavigationHelper.create(page);
+   const membersPath = navigation.resolveMenuPathByVariants([['Members'], ['회원']]) || '/members';
+
+   await dashboardPage.clickMembersMenu();
+   await page.waitForURL(new RegExp(membersPath));
+
+   if (navigation.hasFeature(membersPath, PageFeatureType.TABLE)) {
+     await expect(page.locator('table')).toBeVisible();
+   }
+   ```
+
+### 장점
+- 사이트 구조 변경 시에도 자동으로 최신 메뉴/기능 정보를 반영
+- 메뉴 경로/기능 메타데이터를 근거로 테스트 흐름을 생성
+- 역할별(사용자/관리자) 접근 가능한 화면을 분리하여 관리
+
+> `SiteMapBuilder`와 `NavigationHelper`는 `tests/helpers` 디렉터리에 있으며, 필요에 따라 커스텀 feature 타입을 확장할 수 있습니다.
+
 
 OpenAI API를 사용하면 더 정확한 요소 탐색이 가능합니다:
 

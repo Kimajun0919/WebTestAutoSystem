@@ -19,7 +19,7 @@ const io = new Server(server, {
   }
 });
 
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT || 3001;
 const TEST_DIR = path.join(__dirname, '..');
 
 // 미들웨어

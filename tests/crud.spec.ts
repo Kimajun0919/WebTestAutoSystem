@@ -1,15 +1,25 @@
 import { test, expect } from '@playwright/test';
 import { loginAsAdmin } from './auth-helpers';
 import { AdminMembersPage } from './page-objects/admin-members-page';
+import { NavigationHelper } from './helpers/navigation-helper';
+import { PageFeatureType } from './types';
 
 test.describe('CRUD 작업 테스트', () => {
   let adminPage: AdminMembersPage;
   let testMemberName: string;
   let testMemberEmail: string;
+  let navigation: NavigationHelper;
+  let adminMembersPath: string | undefined;
 
   test.beforeEach(async ({ page }) => {
     // 각 테스트 전에 관리자로 로그인
     await loginAsAdmin(page);
+    navigation = await NavigationHelper.create(page);
+    adminMembersPath = navigation.resolveMenuPathByVariants([
+      ['Members'],
+      ['회원'],
+      ['관리자', '회원'],
+    ]) || '/admin/members';
     adminPage = new AdminMembersPage(page);
     
     // 각 테스트 실행에 대해 고유한 테스트 데이터 생성
@@ -19,6 +29,10 @@ test.describe('CRUD 작업 테스트', () => {
     
     // 회원 페이지로 이동
     await adminPage.waitForMemberList();
+
+    if (adminMembersPath && navigation.hasFeature(adminMembersPath, PageFeatureType.TABLE)) {
+      await expect(adminPage.membersTable).toBeVisible();
+    }
   });
 
   test.describe('생성 작업', () => {

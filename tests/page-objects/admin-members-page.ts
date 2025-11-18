@@ -126,9 +126,10 @@ export class AdminMembersPage extends BasePage {
 
   /**
    * 회원 목록이 로드될 때까지 대기합니다
+   * @param timeout - 타임아웃 (밀리초)
    */
-  async waitForMemberList(): Promise<void> {
-    await this.membersTable.waitFor({ state: 'visible' });
+  async waitForMemberList(timeout?: number): Promise<void> {
+    await this.membersTable.waitFor({ state: 'visible', timeout });
   }
 }
 

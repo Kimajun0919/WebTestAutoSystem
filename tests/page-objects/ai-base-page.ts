@@ -1,7 +1,7 @@
 import { Page, Locator } from '@playwright/test';
-import { findElementByAI, safeClick, safeFill, elementExists, findBestMatch } from '../utils/ai-locator';
-import { findElementHybrid } from '../utils/openai-locator';
+import { findElementByAI, safeClick, safeFill, elementExists, findBestMatch, findElementHybrid } from '../helpers/ai-locator';
 import { BasePage } from './base-page';
+import { logger } from '../helpers/logger';
 
 /**
  * AI 기반 페이지 객체의 기본 클래스
@@ -89,7 +89,7 @@ export class AIBasePage extends BasePage {
         await this.fillByDescription(description, value);
         await this.page.waitForTimeout(200); // 입력 간 짧은 대기
       } catch (error) {
-        console.warn(`폼 필드 입력 실패 (${description}):`, error);
+        logger.warn(`폼 필드 입력 실패 (${description})`, { error: error instanceof Error ? error.message : String(error) });
         throw error;
       }
     }

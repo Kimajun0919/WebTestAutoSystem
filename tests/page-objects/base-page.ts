@@ -28,9 +28,10 @@ export class BasePage {
 
   /**
    * 페이지가 로드될 때까지 대기합니다
+   * @param timeout - 타임아웃 (밀리초)
    */
-  async waitForLoad(): Promise<void> {
-    await this.page.waitForLoadState('networkidle');
+  async waitForLoad(timeout?: number): Promise<void> {
+    await this.page.waitForLoadState('networkidle', { timeout });
   }
 
   /**
